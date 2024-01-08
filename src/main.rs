@@ -56,6 +56,8 @@ async fn main() -> std::io::Result<()> {
             ))
             .service(web::scope("/api/v1")
                 .route("/start_upload", web::post().to(apis::start_upload))
+                .route("/continue_upload", web::post().to(apis::continue_upload))
+                .route("/finish_upload", web::post().to(apis::finish_upload))
             )
             .service(Files::new("statics", "./statics")
                 .prefer_utf8(true)

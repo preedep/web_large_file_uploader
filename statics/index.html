@@ -1,8 +1,54 @@
 <html lang="th">
     <head>
         <title>File Upload</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     </head>
     <body>
-        Hello World
+        <input type="file" id="fileUpload" name="fileUpload"><br><br>
+        <input type="text" id="txtHash" hidden>
+        <button id="btnCalFileSha256" onclick="calculateSHA256();">Hash File</button>
+        <button id="btnUpload" onclick="uploadFile()">Upload</button>
+        <br/><br/>
+        <div id="dvPreview"></div>
+        <script>
+            function uploadFile(){
+                var file_hash = document.getElementById('txtHash').value;
+                var file = document.getElementById('fileUpload').files[0];
+                const data = {
+                    file_name: file.name,
+                    file_size: file.size,
+                    file_hash: file_hash,
+                };
+                console.log(data);
+                const requestOptions = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                };
+                fetch('/api/v1/start_upload', requestOptions)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data);
+                        //alert(data.message);
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+            }
+            function calculateSHA256() {
+                const file = document.getElementById('fileUpload').files[0];
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const wordArray = CryptoJS.lib.WordArray.create(event.target.result);
+                    const file_hash = CryptoJS.SHA256(wordArray).toString();
+                    console.log(file_hash);
+                    document.getElementById('dvPreview').innerHTML = `SHA256: ${file_hash}`;
+                    document.getElementById('txtHash').value = file_hash;
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        </script>
     </body>
 </html>

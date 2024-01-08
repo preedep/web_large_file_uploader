@@ -1,3 +1,4 @@
+use actix_multipart::form::bytes::Bytes;
 use actix_multipart::form::MultipartForm;
 use actix_multipart::form::text::Text;
 use actix_web::{HttpResponse, Responder, web};
@@ -7,6 +8,17 @@ use r2d2_sqlite::SqliteConnectionManager;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 use tracing_attributes::instrument;
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct UploadInfo {
+    upload_id: String,
+    file_name: String,
+    file_size: u64,
+    file_hash: String,
+    blob_access_token: String,
+    blob_file_hash: String,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StartUploadRequest {
@@ -20,7 +32,10 @@ pub struct StartUploadRequest {
 
 #[derive(Debug, MultipartForm)]
 pub struct ContinueUploadRequest {
+
     pub upload_id: Text<String>,
+
+    pub chunk_data: Option<Bytes>
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -93,5 +108,33 @@ pub async fn continue_upload(pool: web::Data<DbPool>,
     let update_id = &form.upload_id;
     let update_id = update_id.as_str();
     debug!("continue_upload with : {:?}", update_id);
+    let res = pool.get().unwrap().query_row(
+        r#"
+            SELECT * FROM temp_file_uploader WHERE upload_id = ?1;
+        "#,
+        &[&update_id],
+        |row| {
+            let upload_info = UploadInfo {
+                upload_id:row.get(0)?,
+                file_name:row.get(1)?,
+                file_size:row.get(2)?,
+                file_hash:row.get(3)?,
+                blob_access_token:row.get(4)?,
+                blob_file_hash:row.get(5)?,
+            };
+            Ok(upload_info)
+        },
+    );
+    if let Err(e) = res {
+        error!("query failed: {:?}", e);
+        return HttpResponse::InternalServerError().body("query failed");
+    }
+    let upload_info = res.unwrap();
+    debug!("continue_upload: {:#?}", upload_info);
+
     HttpResponse::Ok().body("continue_upload")
+}
+#[instrument]
+pub async fn finish_upload(pool: web::Data<DbPool>) -> impl Responder {
+    HttpResponse::Ok().body("finish_upload")
 }
