@@ -3,7 +3,6 @@ use actix_web::{App, HttpServer, web};
 use actix_web::middleware::Logger;
 use actix_web::web::Data;
 use log::{debug, error};
-use r2d2::ManageConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 
 mod apis;
@@ -56,7 +55,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::new(
                 r#"%a %t "%r" %s %b "%{Referer}i" "%{User-Agent}i" %T"#,
             ))
-            .service(web::scope("/v1")
+            .service(web::scope("/api/v1")
                 .route("/start_upload", web::post().to(apis::start_upload))
             )
             .service(Files::new("statics", "./statics")
