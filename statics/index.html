@@ -6,7 +6,7 @@
     <body>
         <input type="file" id="fileUpload" name="fileUpload"><br><br>
         <input type="text" id="txtHash" hidden>
-        <button id="btnCalFileSha256" onclick="calculateSHA256();">Hash File</button>
+        <button id="btnCalFileSha256" onclick="calculateSHA256();">Calc Hash File</button><br/><br/>
         <button id="btnUpload" onclick="uploadFile()">Upload</button>
         <br/><br/>
         <div id="dvPreview"></div>
@@ -32,6 +32,8 @@
                     .then(data => {
                         console.log(data);
                         //alert(data.message);
+
+
                     })
                     .catch((error) => {
                         console.error('Error:', error);
