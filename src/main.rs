@@ -25,7 +25,7 @@ async fn main() -> std::io::Result<()> {
     let ret = pool.get()
         .unwrap().execute(
         r#"
-            BEGIN;
+
             CREATE TABLE  temp_file_uploader(
             id   INTEGER PRIMARY KEY,
             upload_id TEXT NOT NULL UNIQUE,
@@ -37,7 +37,6 @@ async fn main() -> std::io::Result<()> {
             created_dt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX temp_file_uploader_idxs ON temp_file_uploader(upload_id);
-        COMMIT;
         "#,
         (), // empty list of parameters.
     );

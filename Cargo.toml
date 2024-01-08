@@ -30,3 +30,4 @@ r2d2 = "0.8"
 r2d2_sqlite = "0.23"
 azure_core = { version = "0.19" ,features = ["enable_reqwest_rustls","hmac_rust","tokio"]}
 azure_identity = { version = "0.19", features = ["enable_reqwest_rustls"] }
+actix-multipart = "0.6"

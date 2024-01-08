@@ -1,9 +1,11 @@
+use actix_multipart::form::MultipartForm;
+use actix_multipart::form::text::Text;
 use actix_web::{HttpResponse, Responder, web};
 use azure_core::auth::TokenCredential;
 use azure_identity::DefaultAzureCredential;
-use log::debug;
 use r2d2_sqlite::SqliteConnectionManager;
 use serde::{Deserialize, Serialize};
+use tracing::{debug, error};
 use tracing_attributes::instrument;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -14,6 +16,11 @@ pub struct StartUploadRequest {
     pub file_size: u64,
     #[serde(rename = "file_hash")]
     pub file_hash: String,
+}
+
+#[derive(Debug, MultipartForm)]
+pub struct ContinueUploadRequest {
+    pub upload_id: Text<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -34,7 +41,7 @@ pub async fn start_upload(
         .await;
 
     if let Err(err) = response {
-        println!("Failed to get token: {:?}", err);
+        error!("Failed to get token: {:?}", err);
         return HttpResponse::InternalServerError().body("Failed to get token");
     }
     let token = response.unwrap();
@@ -68,17 +75,23 @@ pub async fn start_upload(
         ),
     );
     if let Err(e) = res {
-        println!("insert failed: {:?}", e);
+        error!("insert failed: {:?}", e);
         return HttpResponse::InternalServerError().body("insert failed");
     }
     let response = UploadResponse {
         upload_id,
-        chunk_size: None,
+        chunk_size: Some(1024 * 1024 * 64),
     };
-
     debug!("start_upload: {:?}", response);
-
-    println!("start_upload: {:?}", req);
-    HttpResponse::Ok().body("start_upload")
+    //println!("start_upload: {:?}", req);
+    HttpResponse::Ok().json(response)
 }
 
+#[instrument(skip(form))]
+pub async fn continue_upload(pool: web::Data<DbPool>,
+                             form: MultipartForm<ContinueUploadRequest>) -> impl Responder {
+    let update_id = &form.upload_id;
+    let update_id = update_id.as_str();
+    debug!("continue_upload with : {:?}", update_id);
+    HttpResponse::Ok().body("continue_upload")
+}
