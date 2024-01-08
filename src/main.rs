@@ -2,8 +2,9 @@ use actix_files::Files;
 use actix_web::{App, HttpServer, web};
 use actix_web::middleware::Logger;
 use actix_web::web::Data;
-use log::error;
-use rusqlite::Connection;
+use log::{debug, error};
+use r2d2::ManageConnection;
+use r2d2_sqlite::SqliteConnectionManager;
 
 mod apis;
 
@@ -14,29 +15,43 @@ mod apis;
 async fn main() -> std::io::Result<()> {
     pretty_env_logger::init();
 
-    let conn = Connection::open_in_memory();
-    if let Err(e) = conn {
-        error!("open_in_memory failed: {:?}", e);
+    let con_manager = SqliteConnectionManager::memory();
+    let pool_res = r2d2::Pool::new(con_manager);
+    if let Err(e) = pool_res {
+        error!("create pool failed: {:?}", e);
         return Ok(());
     }
-    let conn = conn.unwrap();
-    let ret = conn.execute(
-        "CREATE TABLE  temp_file_uploader(
+    let pool = pool_res.unwrap();
+    debug!("create pool success");
+    let ret = pool.get()
+        .unwrap().execute(
+        r#"
+            BEGIN;
+            CREATE TABLE  temp_file_uploader(
             id   INTEGER PRIMARY KEY,
-            uuid TEXT NOT NULL UNIQUE,
+            upload_id TEXT NOT NULL UNIQUE,
             file_name TEXT NOT NULL,
             file_size INTEGER NOT NULL,
-            file_hash TEXT NOT NULL
-        )",
+            file_hash TEXT NOT NULL,
+            blob_access_token TEXT NOT NULL,
+            blob_file_hash TEXT NOT NULL,
+            created_dt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX temp_file_uploader_idxs ON temp_file_uploader(upload_id);
+        COMMIT;
+        "#,
         (), // empty list of parameters.
     );
+
     if let Err(e) = ret {
         error!("create table failed: {:?}", e);
         return Ok(());
     }
-    HttpServer::new(|| {
+    debug!("create table success");
+
+    HttpServer::new(move || {
         App::new()
-            //.app_data(Data::new(conn))
+            .app_data(Data::new(pool.clone()))
             .wrap(Logger::default())
             .wrap(Logger::new(
                 r#"%a %t "%r" %s %b "%{Referer}i" "%{User-Agent}i" %T"#,

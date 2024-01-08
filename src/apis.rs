@@ -1,20 +1,18 @@
-use actix_web::{HttpResponse, post, Responder};
+use actix_web::{HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use tracing_attributes::instrument;
 
-#[derive(Clone,Debug,Serialize,Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StartUploadRequest {
     #[serde(rename = "file_name")]
     pub file_name: String,
     #[serde(rename = "file_size")]
     pub file_size: u64,
     #[serde(rename = "file_hash")]
-    pub file_hash: String
+    pub file_hash: String,
 }
 
-pub struct UploadResponse {
-
-}
+pub struct UploadResponse {}
 
 #[instrument]
 pub async fn start_upload(req: actix_web::web::Json<StartUploadRequest>) -> impl Responder {
