@@ -2,13 +2,12 @@ use actix_multipart::form::bytes::Bytes;
 use actix_multipart::form::MultipartForm;
 use actix_multipart::form::text::Text;
 use actix_web::{HttpResponse, Responder, web};
-use azure_core::auth::TokenCredential;
+use azure_core::auth::{AccessToken, TokenCredential};
 use azure_identity::DefaultAzureCredential;
 use r2d2_sqlite::SqliteConnectionManager;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 use tracing_attributes::instrument;
-
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct UploadInfo {
@@ -32,10 +31,9 @@ pub struct StartUploadRequest {
 
 #[derive(Debug, MultipartForm)]
 pub struct ContinueUploadRequest {
-
     pub upload_id: Text<String>,
 
-    pub chunk_data: Option<Bytes>
+    pub chunk_data: Option<Bytes>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -60,6 +58,8 @@ pub async fn start_upload(
         return HttpResponse::InternalServerError().body("Failed to get token");
     }
     let token = response.unwrap();
+    let access_token = serde_json::to_string(&token).unwrap();
+
     let upload_id = uuid::Uuid::new_v4().to_string();
 
     let res = pool.get().unwrap().execute(
@@ -85,7 +85,7 @@ pub async fn start_upload(
             &req.file_name,
             &req.file_size,
             &req.file_hash,
-            &token.token.secret(),
+            &access_token,
             &"-"
         ),
     );
@@ -93,34 +93,42 @@ pub async fn start_upload(
         error!("insert failed: {:?}", e);
         return HttpResponse::InternalServerError().body("insert failed");
     }
-    let response = UploadResponse {
+    let resp = UploadResponse {
         upload_id,
         chunk_size: Some(1024 * 1024 * 64),
     };
-    debug!("start_upload: {:?}", response);
-    //println!("start_upload: {:?}", req);
-    HttpResponse::Ok().json(response)
+    debug!("start_upload: {:#?}", resp);
+    HttpResponse::Ok().json(resp)
 }
 
 #[instrument(skip(form))]
 pub async fn continue_upload(pool: web::Data<DbPool>,
                              form: MultipartForm<ContinueUploadRequest>) -> impl Responder {
+    debug!("Calling continue_upload");
+
     let update_id = &form.upload_id;
     let update_id = update_id.as_str();
     debug!("continue_upload with : {:?}", update_id);
     let res = pool.get().unwrap().query_row(
         r#"
-            SELECT * FROM temp_file_uploader WHERE upload_id = ?1;
+            SELECT
+                upload_id,
+                file_name,
+                file_size,
+                file_hash,
+                blob_access_token,
+                blob_file_hash
+            FROM temp_file_uploader WHERE upload_id = ?1;
         "#,
         &[&update_id],
         |row| {
             let upload_info = UploadInfo {
-                upload_id:row.get(0)?,
-                file_name:row.get(1)?,
-                file_size:row.get(2)?,
-                file_hash:row.get(3)?,
-                blob_access_token:row.get(4)?,
-                blob_file_hash:row.get(5)?,
+                upload_id: row.get(0)?,
+                file_name: row.get(1)?,
+                file_size: row.get(2)?,
+                file_hash: row.get(3)?,
+                blob_access_token: row.get(4)?,
+                blob_file_hash: row.get(5)?,
             };
             Ok(upload_info)
         },
@@ -132,8 +140,18 @@ pub async fn continue_upload(pool: web::Data<DbPool>,
     let upload_info = res.unwrap();
     debug!("continue_upload: {:#?}", upload_info);
 
-    HttpResponse::Ok().body("continue_upload")
+    let access_token = serde_json::from_str::<AccessToken>(&upload_info.blob_access_token).unwrap();
+    debug!("continue_upload access token : {:#?}", access_token);
+
+    //let storage_credentials = StorageCredentials::token_credential(Arc::new(access_token));
+    let resp = UploadResponse {
+        upload_id: upload_info.upload_id,
+        chunk_size: None,
+    };
+    debug!("continue_upload: {:#?}", resp);
+    HttpResponse::Ok().json(resp)
 }
+
 #[instrument]
 pub async fn finish_upload(pool: web::Data<DbPool>) -> impl Responder {
     HttpResponse::Ok().body("finish_upload")

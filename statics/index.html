@@ -30,10 +30,41 @@
                 fetch('/api/v1/start_upload', requestOptions)
                     .then(response => response.json())
                     .then(data => {
-                        console.log(data);
-                        //alert(data.message);
-
-
+                        console.log("Start Upload Complete => ", data);
+                        var chunk_size = data.chunk_size;
+                        var file_size = file.size;
+                        const formData  = new FormData();
+                        formData.append('upload_id', data.upload_id);
+                        var count_chunk = 0;
+                        if (file_size < chunk_size) {
+                            console.log("upload file");
+                            count_chunk = 1;
+                        }else{
+                            console.log("upload chunk files");
+                            count_chunk = Math.ceil(file_size / chunk_size);
+                        }
+                        console.log("count chunk = ",count_chunk);
+                        for (let index = 0; index < count_chunk; index++) {
+                            var start = index * chunk_size;
+                            var end = start + chunk_size;
+                            if (end > file_size) {
+                                end = file_size;
+                            }
+                            var blob = file.slice(start, end);
+                            formData.append('chunk_data', blob);
+                            const requestOptions = {
+                                method: 'POST',
+                                body: formData,
+                            };
+                            fetch('/api/v1/continue_upload', requestOptions)
+                                .then(response => response.json())
+                                .then(data => {
+                                    console.log(data);
+                                })
+                                .catch((error) => {
+                                    console.error('Error:', error);
+                                });
+                        }
                     })
                     .catch((error) => {
                         console.error('Error:', error);
