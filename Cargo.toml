@@ -34,5 +34,6 @@ azure_core = { version = "0.19" ,features = ["enable_reqwest_rustls","hmac_rust"
 azure_identity = { version = "0.19", features = ["enable_reqwest_rustls"] }
 azure_storage = { version = "0.19" ,features = ["enable_reqwest_rustls"]}
 azure_storage_blobs = { version = "0.19",features = ["enable_reqwest_rustls"] }
+derive_more = "0.99"
 
 

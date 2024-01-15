@@ -5,6 +5,8 @@ use actix_web::web::Data;
 use log::{debug, error};
 use r2d2_sqlite::SqliteConnectionManager;
 
+use crate::apis::Config;
+
 mod apis;
 
 
@@ -13,6 +15,12 @@ mod apis;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     pretty_env_logger::init();
+
+    let account = std::env::var("STORAGE_ACCOUNT").expect("missing STORAGE_ACCOUNT");
+    let container = std::env::var("STORAGE_CONTAINER").expect("missing STORAGE_CONTAINER");
+    //let blob_name = std::env::var("STORAGE_BLOB_NAME").expect("missing STORAGE_BLOB_NAME");
+
+    let config = Config::new(&account, &container);
 
     let con_manager = SqliteConnectionManager::memory();
     let pool_res = r2d2::Pool::new(con_manager);
@@ -47,8 +55,10 @@ async fn main() -> std::io::Result<()> {
     }
     debug!("create table success");
 
+
     HttpServer::new(move || {
         App::new()
+            .app_data(Data::new(config.clone()))
             .app_data(Data::new(pool.clone()))
             .wrap(Logger::default())
             .wrap(Logger::new(
