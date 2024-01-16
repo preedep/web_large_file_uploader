@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use actix_files::Files;
 use actix_web::{App, HttpServer, web};
 use actix_web::middleware::Logger;
@@ -55,9 +57,12 @@ async fn main() -> std::io::Result<()> {
     }
     debug!("create table success");
 
-
+    let shared_credentails = Data::new(apis::SharedData {
+        shared_data_map: Arc::new(Mutex::new(HashMap::new())),
+    });
     HttpServer::new(move || {
         App::new()
+            .app_data(shared_credentails.clone())
             .app_data(Data::new(config.clone()))
             .app_data(Data::new(pool.clone()))
             .wrap(Logger::default())

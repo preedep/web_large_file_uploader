@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::fmt::Display;
+use std::sync::{Arc, Mutex};
 
 use actix_multipart::form::bytes::Bytes;
 use actix_multipart::form::MultipartForm;
@@ -96,28 +98,19 @@ type DbPool = r2d2::Pool<SqliteConnectionManager>;
 
 pub type WebAPIResult<T> = Result<T, ErrorResponse>;
 
+#[derive(Debug,Clone)]
+pub struct SharedData {
+    pub shared_data_map: Arc<Mutex<HashMap<String, StorageCredentials>>>,
+}
 #[instrument]
 pub async fn start_upload(
+    shared_credentials: web::Data<SharedData>,
     pool: web::Data<DbPool>,
     req: web::Json<StartUploadRequest>) -> WebAPIResult<impl Responder> {
-    let credential = DefaultAzureCredential::default();
-    //https://storage.azure.com/user_impersonation
-
-    let response = credential
-        .get_token(&["https://management.azure.com/.default"])
-        .await;
-
-    //let response = credential
-    //    .get_token(&["https://storage.azure.com/user_impersonation"])
-    //    .await;
-    if let Err(err) = response {
-        error!("Failed to get token: {:?}", err);
-        return Err(ErrorResponse::new("Failed to get token"));
-    }
-    let token = response.unwrap();
-    let access_token = serde_json::to_string(&token).unwrap();
+    let default_creds = Arc::new(DefaultAzureCredential::default());
+    let credentials = StorageCredentials::token_credential(default_creds);
     let upload_id = uuid::Uuid::new_v4().to_string();
-
+    shared_credentials.shared_data_map.lock().unwrap().insert(upload_id.clone(), credentials);
     let res = pool.get().unwrap().execute(
         r#"
             INSERT INTO temp_file_uploader(
@@ -141,7 +134,7 @@ pub async fn start_upload(
             &req.file_name,
             &req.file_size,
             &req.file_hash,
-            &access_token,
+            &"-",
             &"-"
         ),
     );
