@@ -8,7 +8,6 @@ use actix_multipart::form::text::Text;
 use actix_web::{HttpResponse, Responder, ResponseError, web};
 use actix_web::http::header::ContentType;
 use actix_web::http::StatusCode;
-use azure_core::auth::{AccessToken, TokenCredential};
 use azure_identity::DefaultAzureCredential;
 use azure_storage::StorageCredentials;
 use azure_storage_blobs::prelude::ClientBuilder;
@@ -98,10 +97,11 @@ type DbPool = r2d2::Pool<SqliteConnectionManager>;
 
 pub type WebAPIResult<T> = Result<T, ErrorResponse>;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct SharedData {
     pub shared_data_map: Arc<Mutex<HashMap<String, StorageCredentials>>>,
 }
+
 #[instrument]
 pub async fn start_upload(
     shared_credentials: web::Data<SharedData>,
@@ -152,6 +152,7 @@ pub async fn start_upload(
 
 #[instrument(skip(form))]
 pub async fn continue_upload(
+    shared_credentials: web::Data<SharedData>,
     config: web::Data<Config>,
     pool: web::Data<DbPool>,
     form: MultipartForm<ContinueUploadRequest>) -> WebAPIResult<impl Responder> {
@@ -160,6 +161,10 @@ pub async fn continue_upload(
     let update_id = &form.upload_id;
     let update_id = update_id.as_str();
     debug!("continue_upload with : {:?}", update_id);
+
+    let storage_credentials = shared_credentials.shared_data_map.lock().unwrap().get(update_id);
+
+
     let res = pool.get().unwrap().query_row(
         r#"
             SELECT
@@ -186,23 +191,30 @@ pub async fn continue_upload(
     );
     if let Err(e) = res {
         error!("query failed: {:?}", e);
-        return Err(ErrorResponse::new("query failed"))
+        return Err(ErrorResponse::new("query failed"));
     }
     let upload_info = res.unwrap();
     debug!("continue_upload: {:#?}", upload_info);
 
-    let access_token = serde_json::from_str::<AccessToken>(&upload_info.blob_access_token).unwrap();
-    debug!("continue_upload access token : {:#?}", access_token);
-
-    let storage_credential = StorageCredentials::bearer_token(access_token.token);
-    let blob_client = ClientBuilder::new(&config.account,
-                                         storage_credential).blob_client(&config.container,
-                                                                         &upload_info.file_name);
-
-    let block_res = blob_client.put_block_blob("hello world").content_type("text/plain").await;
-    if let Err(e) = block_res {
-        error!("put block failed: {:#?}", e);
-        return Err(ErrorResponse::new("put block failed"))
+    //let access_token = serde_json::from_str::<AccessToken>(&upload_info.blob_access_token).unwrap();
+    //debug!("continue_upload access token : {:#?}", access_token);
+    //let storage_credential = StorageCredentials::bearer_token(access_token.token);
+    match shared_credentials.shared_data_map.lock().unwrap().get(update_id) {
+        Some(credentials) => {
+            debug!("continue_upload credentials : {:#?}", credentials);
+            let blob_client = ClientBuilder::new(&config.account,
+                                                 credentials.to_owned()).blob_client(&config.container,
+                                                                                     &upload_info.file_name);
+            let block_res = blob_client.put_block_blob("hello world").content_type("text/plain").await;
+            if let Err(e) = block_res {
+                error!("put block failed: {:#?}", e);
+                return Err(ErrorResponse::new("put block failed"));
+            }
+        }
+        None => {
+            error!("continue_upload credentials not found");
+            return Err(ErrorResponse::new("continue_upload credentials not found"));
+        }
     }
 
     //TokenCredential::new(access_token);

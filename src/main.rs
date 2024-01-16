@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
 use actix_files::Files;
 use actix_web::{App, HttpServer, web};
 use actix_web::middleware::Logger;
@@ -35,7 +36,6 @@ async fn main() -> std::io::Result<()> {
     let ret = pool.get()
         .unwrap().execute(
         r#"
-
             CREATE TABLE  temp_file_uploader(
             id   INTEGER PRIMARY KEY,
             upload_id TEXT NOT NULL UNIQUE,
