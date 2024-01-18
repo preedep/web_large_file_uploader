@@ -156,14 +156,11 @@ pub async fn continue_upload(
     config: web::Data<Config>,
     pool: web::Data<DbPool>,
     form: MultipartForm<ContinueUploadRequest>) -> WebAPIResult<impl Responder> {
-    debug!("Calling continue_upload");
+
 
     let update_id = &form.upload_id;
     let update_id = update_id.as_str();
-    debug!("continue_upload with : {:?}", update_id);
-
-    let storage_credentials = shared_credentials.shared_data_map.lock().unwrap().get(update_id);
-
+    //debug!("continue_upload with : {:?}", form.0);
 
     let res = pool.get().unwrap().query_row(
         r#"
@@ -201,14 +198,31 @@ pub async fn continue_upload(
     //let storage_credential = StorageCredentials::bearer_token(access_token.token);
     match shared_credentials.shared_data_map.lock().unwrap().get(update_id) {
         Some(credentials) => {
-            debug!("continue_upload credentials : {:#?}", credentials);
+            debug!("continue_upload credentials : {:?}", credentials);
             let blob_client = ClientBuilder::new(&config.account,
-                                                 credentials.to_owned()).blob_client(&config.container,
-                                                                                     &upload_info.file_name);
-            let block_res = blob_client.put_block_blob("hello world").content_type("text/plain").await;
-            if let Err(e) = block_res {
-                error!("put block failed: {:#?}", e);
-                return Err(ErrorResponse::new("put block failed"));
+                                                 credentials.to_owned(),
+            ).blob_client(&config.container, &upload_info.file_name);
+            match form.into_inner().chunk_data {
+
+                Some(chunk_data) => {
+                    //debug!("continue_upload chunk_data : {:?}", chunk_data);
+                    let content_type = "text/plain";
+                    if let Some(mut mime_type) = chunk_data.content_type {
+                        debug!("continue_upload content_type : {:#?}", mime_type);
+                    }
+                    let chunk_data = chunk_data.data;
+                    let block_res =
+                        blob_client.put_block_blob(chunk_data.to_vec())
+                            .content_type(content_type).await;
+                    if let Err(e) = block_res {
+                        error!("put block failed: {:#?}", e);
+                        return Err(ErrorResponse::new("put block failed"));
+                    }
+                }
+                None => {
+                    error!("continue_upload chunk_data not found");
+                    return Err(ErrorResponse::new("continue_upload chunk_data not found"));
+                }
             }
         }
         None => {
