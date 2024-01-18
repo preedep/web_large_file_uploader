@@ -3,11 +3,11 @@ use std::fmt::Display;
 use std::sync::{Arc, Mutex};
 
 use actix_multipart::form::bytes::Bytes;
-use actix_multipart::form::MultipartForm;
 use actix_multipart::form::text::Text;
-use actix_web::{HttpResponse, Responder, ResponseError, web};
+use actix_multipart::form::MultipartForm;
 use actix_web::http::header::ContentType;
 use actix_web::http::StatusCode;
+use actix_web::{web, HttpResponse, Responder, ResponseError};
 use azure_identity::DefaultAzureCredential;
 use azure_storage::StorageCredentials;
 use azure_storage_blobs::prelude::ClientBuilder;
@@ -30,13 +30,10 @@ struct UploadInfo {
 pub struct Config {
     pub account: String,
     pub container: String,
-
 }
 
 impl Config {
-    pub fn new(account: &String,
-               container: &String,
-    ) -> Config {
+    pub fn new(account: &String, container: &String) -> Config {
         Config {
             account: account.clone(),
             container: container.clone(),
@@ -86,7 +83,6 @@ impl ResponseError for ErrorResponse {
     }
 }
 
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UploadResponse {
     pub upload_id: String,
@@ -106,11 +102,16 @@ pub struct SharedData {
 pub async fn start_upload(
     shared_credentials: web::Data<SharedData>,
     pool: web::Data<DbPool>,
-    req: web::Json<StartUploadRequest>) -> WebAPIResult<impl Responder> {
+    req: web::Json<StartUploadRequest>,
+) -> WebAPIResult<impl Responder> {
     let default_creds = Arc::new(DefaultAzureCredential::default());
     let credentials = StorageCredentials::token_credential(default_creds);
     let upload_id = uuid::Uuid::new_v4().to_string();
-    shared_credentials.shared_data_map.lock().unwrap().insert(upload_id.clone(), credentials);
+    shared_credentials
+        .shared_data_map
+        .lock()
+        .unwrap()
+        .insert(upload_id.clone(), credentials);
     let res = pool.get().unwrap().execute(
         r#"
             INSERT INTO temp_file_uploader(
@@ -135,7 +136,7 @@ pub async fn start_upload(
             &req.file_size,
             &req.file_hash,
             &"-",
-            &"-"
+            &"-",
         ),
     );
     if let Err(e) = res {
@@ -155,7 +156,8 @@ pub async fn continue_upload(
     shared_credentials: web::Data<SharedData>,
     config: web::Data<Config>,
     pool: web::Data<DbPool>,
-    form: MultipartForm<ContinueUploadRequest>) -> WebAPIResult<impl Responder> {
+    form: MultipartForm<ContinueUploadRequest>,
+) -> WebAPIResult<impl Responder> {
     let update_id = &form.upload_id;
     let update_id = update_id.as_str();
     //debug!("continue_upload with : {:?}", form.0);
@@ -194,12 +196,16 @@ pub async fn continue_upload(
     //let access_token = serde_json::from_str::<AccessToken>(&upload_info.blob_access_token).unwrap();
     //debug!("continue_upload access token : {:#?}", access_token);
     //let storage_credential = StorageCredentials::bearer_token(access_token.token);
-    match shared_credentials.shared_data_map.lock().unwrap().get(update_id) {
+    match shared_credentials
+        .shared_data_map
+        .lock()
+        .unwrap()
+        .get(update_id)
+    {
         Some(credentials) => {
             debug!("continue_upload credentials : {:?}", credentials);
-            let blob_client = ClientBuilder::new(&config.account,
-                                                 credentials.to_owned(),
-            ).blob_client(&config.container, &upload_info.file_name);
+            let blob_client = ClientBuilder::new(&config.account, credentials.to_owned())
+                .blob_client(&config.container, &upload_info.file_name);
             match form.into_inner().chunk_data {
                 Some(chunk_data) => {
                     //debug!("continue_upload chunk_data : {:?}", chunk_data);
@@ -208,9 +214,10 @@ pub async fn continue_upload(
                         debug!("continue_upload content_type : {:#?}", mime_type);
                     }
                     let chunk_data = chunk_data.data;
-                    let block_res =
-                        blob_client.put_block_blob(chunk_data.to_vec())
-                            .content_type(content_type).await;
+                    let block_res = blob_client
+                        .put_block_blob(chunk_data.to_vec())
+                        .content_type(content_type)
+                        .await;
                     if let Err(e) = block_res {
                         error!("put block failed: {:#?}", e);
                         return Err(ErrorResponse::new("put block failed"));

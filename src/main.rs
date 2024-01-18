@@ -2,16 +2,15 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use actix_files::Files;
-use actix_web::{App, HttpServer, web};
 use actix_web::middleware::Logger;
 use actix_web::web::Data;
+use actix_web::{web, App, HttpServer};
 use log::{debug, error};
 use r2d2_sqlite::SqliteConnectionManager;
 
 use crate::apis::Config;
 
 mod apis;
-
 
 //type DbPool = r2d2::Pool<r2d2::ConnectionManager<SqliteConnection>>;
 
@@ -33,8 +32,7 @@ async fn main() -> std::io::Result<()> {
     }
     let pool = pool_res.unwrap();
     debug!("create pool success");
-    let ret = pool.get()
-        .unwrap().execute(
+    let ret = pool.get().unwrap().execute(
         r#"
             CREATE TABLE  temp_file_uploader(
             id   INTEGER PRIMARY KEY,
@@ -69,16 +67,19 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::new(
                 r#"%a %t "%r" %s %b "%{Referer}i" "%{User-Agent}i" %T"#,
             ))
-            .service(web::scope("/api/v1")
-                .route("/start_upload", web::post().to(apis::start_upload))
-                .route("/continue_upload", web::post().to(apis::continue_upload))
-                .route("/finish_upload", web::post().to(apis::finish_upload))
+            .service(
+                web::scope("/api/v1")
+                    .route("/start_upload", web::post().to(apis::start_upload))
+                    .route("/continue_upload", web::post().to(apis::continue_upload))
+                    .route("/finish_upload", web::post().to(apis::finish_upload)),
             )
-            .service(Files::new("statics", "./statics")
-                .prefer_utf8(true)
-                .index_file("index.html"))
+            .service(
+                Files::new("statics", "./statics")
+                    .prefer_utf8(true)
+                    .index_file("index.html"),
+            )
     })
-        .bind(("0.0.0.0", 8888))?
-        .run()
-        .await
+    .bind(("0.0.0.0", 8888))?
+    .run()
+    .await
 }
