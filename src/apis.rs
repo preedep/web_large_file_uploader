@@ -156,8 +156,6 @@ pub async fn continue_upload(
     config: web::Data<Config>,
     pool: web::Data<DbPool>,
     form: MultipartForm<ContinueUploadRequest>) -> WebAPIResult<impl Responder> {
-
-
     let update_id = &form.upload_id;
     let update_id = update_id.as_str();
     //debug!("continue_upload with : {:?}", form.0);
@@ -203,7 +201,6 @@ pub async fn continue_upload(
                                                  credentials.to_owned(),
             ).blob_client(&config.container, &upload_info.file_name);
             match form.into_inner().chunk_data {
-
                 Some(chunk_data) => {
                     //debug!("continue_upload chunk_data : {:?}", chunk_data);
                     let content_type = "text/plain";
