@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::io::Read;
 use std::sync::{Arc, Mutex};
 
-use actix_multipart::form::bytes::Bytes;
-use actix_multipart::form::text::Text;
 use actix_multipart::form::MultipartForm;
+use actix_multipart::form::tempfile::TempFile;
+use actix_multipart::form::text::Text;
+use actix_web::{HttpResponse, Responder, ResponseError, web};
 use actix_web::http::header::ContentType;
 use actix_web::http::StatusCode;
-use actix_web::{web, HttpResponse, Responder, ResponseError};
 use azure_identity::DefaultAzureCredential;
 use azure_storage::StorageCredentials;
 use azure_storage_blobs::prelude::ClientBuilder;
@@ -53,8 +54,10 @@ pub struct StartUploadRequest {
 
 #[derive(Debug, MultipartForm)]
 pub struct ContinueUploadRequest {
+    #[multipart(limit = "1KiB")]
     pub upload_id: Text<String>,
-    pub chunk_data: Option<Bytes>,
+    #[multipart(limit = "128MiB")]
+    pub chunk_data: Option<TempFile>,
 }
 
 const MAX_CHUNK_SIZE: u64 = 1024 * 1024 * 64;
@@ -151,8 +154,10 @@ pub async fn start_upload(
     Ok(HttpResponse::Ok().json(resp))
 }
 
+
 #[instrument(skip(form))]
 pub async fn continue_upload(
+    //payload: web::Payload,
     shared_credentials: web::Data<SharedData>,
     config: web::Data<Config>,
     pool: web::Data<DbPool>,
@@ -161,6 +166,9 @@ pub async fn continue_upload(
     let update_id = &form.upload_id;
     let update_id = update_id.as_str();
     //debug!("continue_upload with : {:?}", form.0);
+
+    // Loader::builder().file_limit(128 * 1024 * 1024).build().load_fields(form).await.unwrap();
+
 
     let res = pool.get().unwrap().query_row(
         r#"
@@ -191,7 +199,7 @@ pub async fn continue_upload(
         return Err(ErrorResponse::new("query failed"));
     }
     let upload_info = res.unwrap();
-    debug!("continue_upload: {:#?}", upload_info);
+    //debug!("continue_upload: {:#?}", upload_info);
 
     //let access_token = serde_json::from_str::<AccessToken>(&upload_info.blob_access_token).unwrap();
     //debug!("continue_upload access token : {:#?}", access_token);
@@ -213,9 +221,12 @@ pub async fn continue_upload(
                     if let Some(mut mime_type) = chunk_data.content_type {
                         debug!("continue_upload content_type : {:#?}", mime_type);
                     }
-                    let chunk_data = chunk_data.data;
+                    debug!("continue_upload chunk_data : {:#?}", chunk_data.file);
+                    let mut tmp_file = chunk_data.file.as_file();
+                    let mut buf = Vec::new();
+                    let _size = tmp_file.read_to_end(&mut buf);
                     let block_res = blob_client
-                        .put_block_blob(chunk_data.to_vec())
+                        .put_block_blob(buf)
                         .content_type(content_type)
                         .await;
                     if let Err(e) = block_res {

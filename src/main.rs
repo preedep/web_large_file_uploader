@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use actix_files::Files;
+use actix_web::{App, HttpServer, web};
 use actix_web::middleware::Logger;
 use actix_web::web::Data;
-use actix_web::{web, App, HttpServer};
 use log::{debug, error};
 use r2d2_sqlite::SqliteConnectionManager;
 
@@ -61,6 +61,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(shared_credentails.clone())
+            //.app_data(Data::new(PayloadConfig::new(128 * 1024 * 1024).clone()))
             .app_data(Data::new(config.clone()))
             .app_data(Data::new(pool.clone()))
             .wrap(Logger::default())
@@ -79,7 +80,7 @@ async fn main() -> std::io::Result<()> {
                     .index_file("index.html"),
             )
     })
-    .bind(("0.0.0.0", 8888))?
-    .run()
-    .await
+        .bind(("0.0.0.0", 8888))?
+        .run()
+        .await
 }
