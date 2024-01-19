@@ -1,12 +1,9 @@
 use std::collections::HashMap;
-use std::fmt::Display;
-use std::io::Read;
 use std::sync::{Arc, Mutex};
 
 use actix_multipart::form::bytes::Bytes;
 use actix_multipart::form::text::Text;
 use actix_multipart::form::MultipartForm;
-use actix_web::dev::Service;
 use actix_web::http::header::ContentType;
 use actix_web::http::StatusCode;
 use actix_web::{web, HttpResponse, Responder, ResponseError};
@@ -199,8 +196,7 @@ pub async fn continue_upload(
 ) -> WebAPIResult<impl Responder> {
     let update_id = &form.upload_id;
     let update_id = update_id.as_str();
-    //debug!("continue_upload with : {:?}", form.0);
-    // Loader::builder().file_limit(128 * 1024 * 1024).build().load_fields(form).await.unwrap();
+
     let res = pool.get().unwrap().query_row(
         r#"
             SELECT
