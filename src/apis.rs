@@ -64,6 +64,12 @@ pub struct ContinueUploadRequest {
     pub chunk_data: Option<Bytes>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FinishUploadRequest {
+    #[serde(rename = "upload_id")]
+    pub upload_id: String,
+}
+
 const MAX_CHUNK_SIZE: u64 = 1024 * 1024 * 16;
 
 #[derive(Clone, Debug, derive_more::Display, Serialize, Deserialize)]
@@ -94,6 +100,12 @@ impl ResponseError for ErrorResponse {
 pub struct UploadResponse {
     pub upload_id: String,
     pub chunk_size: Option<u64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FinishResponse {
+    pub upload_id: String,
+    pub file_hash: String,
 }
 
 type DbPool = r2d2::Pool<SqliteConnectionManager>;
@@ -269,6 +281,12 @@ pub async fn continue_upload(
 }
 
 #[instrument]
-pub async fn finish_upload(pool: web::Data<DbPool>) -> WebAPIResult<impl Responder> {
-    Ok(HttpResponse::Ok().body("finish_upload"))
+pub async fn finish_upload(pool: web::Data<DbPool>,
+                           config: web::Data<Config>,
+                           req: web::Json<FinishUploadRequest>) -> WebAPIResult<impl Responder> {
+    let resp = FinishResponse {
+        upload_id: "".to_string(),
+        file_hash: "".to_string(),
+    };
+    Ok(HttpResponse::Ok().json(resp))
 }
