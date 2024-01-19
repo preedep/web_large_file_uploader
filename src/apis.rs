@@ -284,6 +284,8 @@ pub async fn continue_upload(
 pub async fn finish_upload(pool: web::Data<DbPool>,
                            config: web::Data<Config>,
                            req: web::Json<FinishUploadRequest>) -> WebAPIResult<impl Responder> {
+    debug!("finish_upload with : {:#?}", req);
+
     let resp = FinishResponse {
         upload_id: "".to_string(),
         file_hash: "".to_string(),
