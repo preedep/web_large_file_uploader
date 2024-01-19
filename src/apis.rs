@@ -24,6 +24,7 @@ struct UploadInfo {
     file_name: String,
     file_size: u64,
     file_hash: String,
+    content_type: String,
     blob_access_token: String,
     blob_file_hash: String,
 }
@@ -51,6 +52,8 @@ pub struct StartUploadRequest {
     pub file_size: u64,
     #[serde(rename = "file_hash")]
     pub file_hash: String,
+    #[serde(rename = "content_type")]
+    pub content_type: String,
 }
 
 #[derive(Debug, MultipartForm)]
@@ -98,8 +101,6 @@ type DbPool = r2d2::Pool<SqliteConnectionManager>;
 pub type WebAPIResult<T> = Result<T, ErrorResponse>;
 
 
-
-
 #[derive(Debug, Clone)]
 pub struct SharedData {
     pub shared_data_map: Arc<Mutex<HashMap<String, StorageCredentials>>>,
@@ -107,6 +108,7 @@ pub struct SharedData {
 
 #[instrument]
 pub async fn start_upload(
+    config: web::Data<Config>,
     shared_credentials: web::Data<SharedData>,
     pool: web::Data<DbPool>,
     req: web::Json<StartUploadRequest>,
@@ -118,7 +120,7 @@ pub async fn start_upload(
         .shared_data_map
         .lock()
         .unwrap()
-        .insert(upload_id.clone(), credentials);
+        .insert(upload_id.clone(), credentials.clone());
     let res = pool.get().unwrap().execute(
         r#"
             INSERT INTO temp_file_uploader(
@@ -126,6 +128,7 @@ pub async fn start_upload(
                 file_name,
                 file_size,
                 file_hash,
+                content_type,
                 blob_access_token,
                 blob_file_hash
             ) VALUES (
@@ -142,6 +145,7 @@ pub async fn start_upload(
             &req.file_name,
             &req.file_size,
             &req.file_hash,
+            &req.content_type,
             &"-",
             &"-",
         ),
@@ -150,6 +154,21 @@ pub async fn start_upload(
         error!("insert failed: {:?}", e);
         return Err(ErrorResponse::new("insert failed"));
     }
+
+    let blob_client = ClientBuilder::new(&config.account, credentials.clone())
+        .blob_client(&config.container, &req.file_name);
+
+    //let content_type = "text/plain";
+    let block_res = blob_client
+        .put_append_blob()
+        .content_type(&req.content_type)
+        .await;
+    if let Err(e) = block_res {
+        error!("put block failed: {:#?}", e);
+        return Err(ErrorResponse::new("put block failed"));
+    }
+
+
     let resp = UploadResponse {
         upload_id,
         chunk_size: Some(MAX_CHUNK_SIZE),
@@ -187,8 +206,9 @@ pub async fn continue_upload(
                 file_name: row.get(1)?,
                 file_size: row.get(2)?,
                 file_hash: row.get(3)?,
-                blob_access_token: row.get(4)?,
-                blob_file_hash: row.get(5)?,
+                content_type: row.get(4)?,
+                blob_access_token: row.get(5)?,
+                blob_file_hash: row.get(6)?,
             };
             Ok(upload_info)
         },
@@ -212,13 +232,13 @@ pub async fn continue_upload(
                 Some(chunk_data) => {
                     //debug!("continue_upload chunk_data : {:?}", chunk_data);
                     debug!("continue_upload chunk_data : {:#?}", &chunk_data);
-                    let content_type = "text/plain";
-                    if let Some(mut mime_type) = chunk_data.content_type {
-                        debug!("continue_upload content_type : {:#?}", mime_type);
-                    }
+                    //let content_type = "text/plain";
+                    //if let Some(mut mime_type) = chunk_data.content_type {
+                    //    debug!("continue_upload content_type : {:#?}", mime_type);
+                    //}
                     let block_res = blob_client
-                        .put_block_blob(chunk_data.data.to_vec())
-                        .content_type(content_type)
+                        .append_block(chunk_data.data.to_vec())
+                        //.content_type(content_type)
                         .await;
                     if let Err(e) = block_res {
                         error!("put block failed: {:#?}", e);

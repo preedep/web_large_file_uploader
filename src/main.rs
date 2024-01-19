@@ -41,6 +41,7 @@ async fn main() -> std::io::Result<()> {
             file_name TEXT NOT NULL,
             file_size INTEGER NOT NULL,
             file_hash TEXT NOT NULL,
+            content_type TEXT NOT NULL,
             blob_access_token TEXT NOT NULL,
             blob_file_hash TEXT NOT NULL,
             created_dt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -60,8 +61,8 @@ async fn main() -> std::io::Result<()> {
         shared_data_map: Arc::new(Mutex::new(HashMap::new())),
     });
     let multipart_config = MultipartFormConfig::default();
-    let multipart_config = multipart_config.total_limit(128 * 1024 * 1024)
-        .memory_limit(128 * 1024 * 1024);
+    let multipart_config = multipart_config.total_limit(100 * 1024 * 1024)
+        .memory_limit(100 * 1024 * 1024);
 
     HttpServer::new(move || {
         App::new()
@@ -86,7 +87,7 @@ async fn main() -> std::io::Result<()> {
                     .index_file("index.html"),
             )
     })
-    .bind(("0.0.0.0", 8888))?
-    .run()
-    .await
+        .bind(("0.0.0.0", 8888))?
+        .run()
+        .await
 }
