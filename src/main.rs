@@ -12,6 +12,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use crate::apis::Config;
 
 mod apis;
+mod mime_types;
 
 //type DbPool = r2d2::Pool<r2d2::ConnectionManager<SqliteConnection>>;
 

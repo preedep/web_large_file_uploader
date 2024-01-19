@@ -42,5 +42,6 @@ azure_identity = { version = "0.19", features = ["enable_reqwest_rustls"] }
 azure_storage = { version = "0.19" ,features = ["enable_reqwest_rustls"]}
 azure_storage_blobs = { version = "0.19",features = ["enable_reqwest_rustls"] }
 derive_more = "0.99"
+phf = { version = "0.11.2", features = ["macros"] }
 
 

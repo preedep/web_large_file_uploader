@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 use tracing_attributes::instrument;
 
+use crate::mime_types::MIME_TYPE;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct UploadInfo {
     upload_id: String,
@@ -126,6 +128,18 @@ pub async fn start_upload(
     let default_creds = Arc::new(DefaultAzureCredential::default());
     let credentials = StorageCredentials::token_credential(default_creds);
     let upload_id = uuid::Uuid::new_v4().to_string();
+
+    let file_ext = &req.file_name.split('.').last();
+    let file_ext = match file_ext {
+        Some(ext) => ext,
+        None => {
+            error!("file_ext not found");
+            return Err(ErrorResponse::new("file_ext not found"));
+        }
+    };
+    let content_type = MIME_TYPE.get(file_ext).unwrap_or(&"application/octet-stream");
+    debug!("start_upload content_type : {:#?}", content_type);
+
     shared_credentials
         .shared_data_map
         .lock()
@@ -156,7 +170,7 @@ pub async fn start_upload(
             &req.file_name,
             &req.file_size,
             &req.file_hash,
-            &req.content_type,
+            content_type,
             &"-",
             &"-",
         ),
