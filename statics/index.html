@@ -1,0 +1,130 @@
+<html lang="th">
+<head>
+    <title>File Upload</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body>
+<input type="file" id="fileUpload" name="fileUpload"><br><br>
+<input type="text" id="txtHash" hidden>
+<button id="btnCalFileSha256" onclick="calculateMD5();">Calc Hash File</button>
+<br/><br/>
+<button id="btnUpload" onclick="uploadFile()">Upload</button>
+<br/><br/>
+<div id="dvPreview"></div>
+<script>
+    function uploadFile() {
+        var file_hash = document.getElementById('txtHash').value;
+        var file = document.getElementById('fileUpload').files[0];
+        const data = {
+            file_name: file.name,
+            file_size: file.size,
+            file_hash: file_hash,
+            content_type: "text/plain"
+        };
+        console.log(data);
+        const requestOptions = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        };
+        fetch('/api/v1/start_upload', requestOptions)
+            .then(response => response.json())
+            .then(data => {
+                console.log("Start Upload Complete => ", data);
+                var chunk_size = data.chunk_size;
+                var file_size = file.size;
+                const formData = new FormData();
+                formData.append('upload_id', data.upload_id);
+                var count_chunk = 0;
+                if (file_size < chunk_size) {
+                    console.log("upload file");
+                    count_chunk = 1;
+                } else {
+                    console.log("upload chunk files");
+                    count_chunk = Math.ceil(file_size / chunk_size);
+                }
+                console.log("count chunk = ", count_chunk);
+                for (let index = 0; index < count_chunk; index++) {
+                    var start = index * chunk_size;
+                    var end = start + chunk_size;
+                    if (end > file_size) {
+                        end = file_size;
+                    }
+                    var blob = file.slice(start, end);
+                    formData.append('chunk_data', blob);
+                    const requestOptions = {
+                        method: 'POST',
+                        body: formData,
+                    };
+                    fetch('/api/v1/continue_upload', requestOptions)
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log(data);
+
+                            // finish upload
+                            if (index === (count_chunk - 1)) {
+                                console.log("finish upload");
+                                ////////
+                                const finish_data = {
+                                    upload_id: data.upload_id,
+                                };
+                                const requestFinishWithOptionOptions = {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify(finish_data),
+                                };
+                                fetch('/api/v1/finish_upload', requestFinishWithOptionOptions)
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        console.log(data);
+                                    })
+                                    .catch((error) => {
+                                        console.error('Error:', error);
+                                    });
+                            }
+                            /////
+
+                        })
+                        .catch((error) => {
+                            console.error('Error:', error);
+                        });
+
+
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+    }
+
+    function calculateSHA256() {
+        const file = document.getElementById('fileUpload').files[0];
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            const wordArray = CryptoJS.lib.WordArray.create(event.target.result);
+            const file_hash = CryptoJS.SHA256(wordArray).toString();
+            console.log(file_hash);
+            document.getElementById('dvPreview').innerHTML = `SHA256: ${file_hash}`;
+            document.getElementById('txtHash').value = file_hash;
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    function calculateMD5() {
+        const file = document.getElementById('fileUpload').files[0];
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            const wordArray = CryptoJS.lib.WordArray.create(event.target.result);
+            const file_hash = CryptoJS.MD5(wordArray).toString();
+            console.log(file_hash);
+            document.getElementById('dvPreview').innerHTML = `MD5: ${file_hash}`;
+            document.getElementById('txtHash').value = file_hash;
+        };
+        reader.readAsArrayBuffer(file);
+    }
+</script>
+</body>
+</html>
