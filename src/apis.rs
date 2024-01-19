@@ -137,7 +137,8 @@ pub async fn start_upload(
                 ?3,
                 ?4,
                 ?5,
-                ?6
+                ?6,
+                ?7
             );
         "#,
         (
@@ -195,6 +196,7 @@ pub async fn continue_upload(
                 file_name,
                 file_size,
                 file_hash,
+                content_type,
                 blob_access_token,
                 blob_file_hash
             FROM temp_file_uploader WHERE upload_id = ?1;
