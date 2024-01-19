@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use actix_multipart::form::bytes::Bytes;
-use actix_multipart::form::text::Text;
 use actix_multipart::form::MultipartForm;
+use actix_multipart::form::text::Text;
+use actix_web::{HttpResponse, Responder, ResponseError, web};
 use actix_web::http::header::ContentType;
 use actix_web::http::StatusCode;
-use actix_web::{web, HttpResponse, Responder, ResponseError};
 use azure_identity::DefaultAzureCredential;
 use azure_storage::StorageCredentials;
 use azure_storage_blobs::prelude::ClientBuilder;
