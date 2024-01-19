@@ -62,35 +62,38 @@
                         .then(response => response.json())
                         .then(data => {
                             console.log(data);
+
+                            // finish upload
+                            if (index === (count_chunk - 1)) {
+                                console.log("finish upload");
+                                ////////
+                                const finish_data = {
+                                    upload_id: data.upload_id,
+                                };
+                                const requestFinishWithOptionOptions = {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify(finish_data),
+                                };
+                                fetch('/api/v1/finish_upload', requestFinishWithOptionOptions)
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        console.log(data);
+                                    })
+                                    .catch((error) => {
+                                        console.error('Error:', error);
+                                    });
+                            }
+                            /////
+
                         })
                         .catch((error) => {
                             console.error('Error:', error);
                         });
 
-                    // finish upload
-                    if (index === (count_chunk - 1)) {
-                        console.log("finish upload");
-                        ////////
-                        const finish_data = {
-                            upload_id: data.upload_id,
-                        };
-                        const requestFinishWithOptionOptions = {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(finish_data),
-                        };
-                        fetch('/api/v1/finish_upload', requestFinishWithOptionOptions)
-                            .then(response => response.json())
-                            .then(data => {
-                                console.log(data);
-                            })
-                            .catch((error) => {
-                                console.error('Error:', error);
-                            });
-                    }
-                    /////
+
                 }
             })
             .catch((error) => {
