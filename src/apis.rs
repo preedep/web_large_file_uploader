@@ -3,12 +3,13 @@ use std::fmt::Display;
 use std::io::Read;
 use std::sync::{Arc, Mutex};
 
-use actix_multipart::form::tempfile::TempFile;
-use actix_multipart::form::text::Text;
+use actix_multipart::form::bytes::Bytes;
 use actix_multipart::form::MultipartForm;
+use actix_multipart::form::text::Text;
+use actix_web::{HttpResponse, Responder, ResponseError, web};
+use actix_web::dev::Service;
 use actix_web::http::header::ContentType;
 use actix_web::http::StatusCode;
-use actix_web::{web, HttpResponse, Responder, ResponseError};
 use azure_identity::DefaultAzureCredential;
 use azure_storage::StorageCredentials;
 use azure_storage_blobs::prelude::ClientBuilder;
@@ -57,10 +58,10 @@ pub struct ContinueUploadRequest {
     #[multipart(limit = "1KiB")]
     pub upload_id: Text<String>,
     #[multipart(limit = "128MiB")]
-    pub chunk_data: Option<TempFile>,
+    pub chunk_data: Option<Bytes>,
 }
 
-const MAX_CHUNK_SIZE: u64 = 1024 * 1024 * 64;
+const MAX_CHUNK_SIZE: u64 = 1024 * 1024 * 16;
 
 #[derive(Clone, Debug, derive_more::Display, Serialize, Deserialize)]
 pub struct ErrorResponse {
@@ -95,6 +96,9 @@ pub struct UploadResponse {
 type DbPool = r2d2::Pool<SqliteConnectionManager>;
 
 pub type WebAPIResult<T> = Result<T, ErrorResponse>;
+
+
+
 
 #[derive(Debug, Clone)]
 pub struct SharedData {
@@ -207,16 +211,13 @@ pub async fn continue_upload(
             match form.into_inner().chunk_data {
                 Some(chunk_data) => {
                     //debug!("continue_upload chunk_data : {:?}", chunk_data);
+                    debug!("continue_upload chunk_data : {:#?}", &chunk_data);
                     let content_type = "text/plain";
                     if let Some(mut mime_type) = chunk_data.content_type {
                         debug!("continue_upload content_type : {:#?}", mime_type);
                     }
-                    debug!("continue_upload chunk_data : {:#?}", chunk_data.file);
-                    let mut tmp_file = chunk_data.file.as_file();
-                    let mut buf = Vec::new();
-                    let _size = tmp_file.read_to_end(&mut buf);
                     let block_res = blob_client
-                        .put_block_blob(buf)
+                        .put_block_blob(chunk_data.data.to_vec())
                         .content_type(content_type)
                         .await;
                     if let Err(e) = block_res {

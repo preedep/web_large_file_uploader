@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use actix_files::Files;
+use actix_multipart::form::MultipartFormConfig;
+use actix_web::{App, HttpServer, web};
 use actix_web::middleware::Logger;
 use actix_web::web::Data;
-use actix_web::{web, App, HttpServer};
 use log::{debug, error};
 use r2d2_sqlite::SqliteConnectionManager;
 
@@ -58,8 +59,13 @@ async fn main() -> std::io::Result<()> {
     let shared_credentails = Data::new(apis::SharedData {
         shared_data_map: Arc::new(Mutex::new(HashMap::new())),
     });
+    let multipart_config = MultipartFormConfig::default();
+    let multipart_config = multipart_config.total_limit(128 * 1024 * 1024)
+        .memory_limit(128 * 1024 * 1024);
+
     HttpServer::new(move || {
         App::new()
+            .app_data(Data::new(multipart_config.clone()))
             .app_data(shared_credentails.clone())
             //.app_data(Data::new(PayloadConfig::new(128 * 1024 * 1024).clone()))
             .app_data(Data::new(config.clone()))
