@@ -6,7 +6,7 @@
 <body>
 <input type="file" id="fileUpload" name="fileUpload"><br><br>
 <input type="text" id="txtHash" hidden>
-<button id="btnCalFileSha256" onclick="calculateSHA256();">Calc Hash File</button>
+<button id="btnCalFileSha256" onclick="calculateMD5();">Calc Hash File</button>
 <br/><br/>
 <button id="btnUpload" onclick="uploadFile()">Upload</button>
 <br/><br/>
@@ -109,6 +109,18 @@
             const file_hash = CryptoJS.SHA256(wordArray).toString();
             console.log(file_hash);
             document.getElementById('dvPreview').innerHTML = `SHA256: ${file_hash}`;
+            document.getElementById('txtHash').value = file_hash;
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    function calculateMD5() {
+        const file = document.getElementById('fileUpload').files[0];
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            const wordArray = CryptoJS.lib.WordArray.create(event.target.result);
+            const file_hash = CryptoJS.MD5(wordArray).toString();
+            console.log(file_hash);
+            document.getElementById('dvPreview').innerHTML = `MD5: ${file_hash}`;
             document.getElementById('txtHash').value = file_hash;
         };
         reader.readAsArrayBuffer(file);

@@ -3,9 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use actix_files::Files;
 use actix_multipart::form::MultipartFormConfig;
-use actix_web::{App, HttpServer, web};
 use actix_web::middleware::Logger;
 use actix_web::web::Data;
+use actix_web::{web, App, HttpServer};
 use log::{debug, error};
 use r2d2_sqlite::SqliteConnectionManager;
 
@@ -61,7 +61,8 @@ async fn main() -> std::io::Result<()> {
         shared_data_map: Arc::new(Mutex::new(HashMap::new())),
     });
     let multipart_config = MultipartFormConfig::default();
-    let multipart_config = multipart_config.total_limit(100 * 1024 * 1024)
+    let multipart_config = multipart_config
+        .total_limit(100 * 1024 * 1024)
         .memory_limit(100 * 1024 * 1024);
 
     HttpServer::new(move || {
@@ -87,7 +88,7 @@ async fn main() -> std::io::Result<()> {
                     .index_file("index.html"),
             )
     })
-        .bind(("0.0.0.0", 8888))?
-        .run()
-        .await
+    .bind(("0.0.0.0", 8888))?
+    .run()
+    .await
 }

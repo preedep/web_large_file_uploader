@@ -4,12 +4,12 @@ use std::io::Read;
 use std::sync::{Arc, Mutex};
 
 use actix_multipart::form::bytes::Bytes;
-use actix_multipart::form::MultipartForm;
 use actix_multipart::form::text::Text;
-use actix_web::{HttpResponse, Responder, ResponseError, web};
+use actix_multipart::form::MultipartForm;
 use actix_web::dev::Service;
 use actix_web::http::header::ContentType;
 use actix_web::http::StatusCode;
+use actix_web::{web, HttpResponse, Responder, ResponseError};
 use azure_identity::DefaultAzureCredential;
 use azure_storage::StorageCredentials;
 use azure_storage_blobs::prelude::ClientBuilder;
@@ -104,14 +104,15 @@ pub struct UploadResponse {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FinishResponse {
+    #[serde(rename = "upload_id")]
     pub upload_id: String,
+    #[serde(rename = "file_hash")]
     pub file_hash: String,
 }
 
 type DbPool = r2d2::Pool<SqliteConnectionManager>;
 
 pub type WebAPIResult<T> = Result<T, ErrorResponse>;
-
 
 #[derive(Debug, Clone)]
 pub struct SharedData {
@@ -180,7 +181,6 @@ pub async fn start_upload(
         error!("put block failed: {:#?}", e);
         return Err(ErrorResponse::new("put block failed"));
     }
-
 
     let resp = UploadResponse {
         upload_id,
@@ -281,13 +281,16 @@ pub async fn continue_upload(
 }
 
 #[instrument]
-pub async fn finish_upload(pool: web::Data<DbPool>,
-                           config: web::Data<Config>,
-                           req: web::Json<FinishUploadRequest>) -> WebAPIResult<impl Responder> {
-    debug!("finish_upload with : {:#?}", req);
+pub async fn finish_upload(
+    pool: web::Data<DbPool>,
+    config: web::Data<Config>,
+    req: web::Json<FinishUploadRequest>,
+) -> WebAPIResult<impl Responder> {
+    //debug!("finish_upload with : {:#?}", req);
+    let update_id = &req.upload_id;
 
     let resp = FinishResponse {
-        upload_id: "".to_string(),
+        upload_id: update_id.clone(),
         file_hash: "".to_string(),
     };
     Ok(HttpResponse::Ok().json(resp))
