@@ -9,9 +9,11 @@ use actix_web::{web, App, HttpServer};
 use log::{debug, error};
 use r2d2_sqlite::SqliteConnectionManager;
 
-use crate::apis::Config;
+use crate::models::{Config, SharedData};
 
 mod apis;
+mod mime_types;
+mod models;
 
 //type DbPool = r2d2::Pool<r2d2::ConnectionManager<SqliteConnection>>;
 
@@ -57,7 +59,7 @@ async fn main() -> std::io::Result<()> {
     }
     debug!("create table success");
 
-    let shared_credentails = Data::new(apis::SharedData {
+    let shared_credentails = Data::new(SharedData {
         shared_data_map: Arc::new(Mutex::new(HashMap::new())),
     });
     let multipart_config = MultipartFormConfig::default();

@@ -1,123 +1,18 @@
-use std::collections::HashMap;
-use std::fmt::Display;
-use std::io::Read;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use actix_multipart::form::bytes::Bytes;
-use actix_multipart::form::text::Text;
 use actix_multipart::form::MultipartForm;
-use actix_web::dev::Service;
-use actix_web::http::header::ContentType;
-use actix_web::http::StatusCode;
-use actix_web::{web, HttpResponse, Responder, ResponseError};
+use actix_web::{web, HttpResponse, Responder};
 use azure_identity::DefaultAzureCredential;
 use azure_storage::StorageCredentials;
 use azure_storage_blobs::prelude::ClientBuilder;
-use r2d2_sqlite::SqliteConnectionManager;
-use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 use tracing_attributes::instrument;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct UploadInfo {
-    upload_id: String,
-    file_name: String,
-    file_size: u64,
-    file_hash: String,
-    content_type: String,
-    blob_access_token: String,
-    blob_file_hash: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Config {
-    pub account: String,
-    pub container: String,
-}
-
-impl Config {
-    pub fn new(account: &String, container: &String) -> Config {
-        Config {
-            account: account.clone(),
-            container: container.clone(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct StartUploadRequest {
-    #[serde(rename = "file_name")]
-    pub file_name: String,
-    #[serde(rename = "file_size")]
-    pub file_size: u64,
-    #[serde(rename = "file_hash")]
-    pub file_hash: String,
-    #[serde(rename = "content_type")]
-    pub content_type: String,
-}
-
-#[derive(Debug, MultipartForm)]
-pub struct ContinueUploadRequest {
-    #[multipart(limit = "1KiB")]
-    pub upload_id: Text<String>,
-    #[multipart(limit = "128MiB")]
-    pub chunk_data: Option<Bytes>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FinishUploadRequest {
-    #[serde(rename = "upload_id")]
-    pub upload_id: String,
-}
-
-const MAX_CHUNK_SIZE: u64 = 1024 * 1024 * 16;
-
-#[derive(Clone, Debug, derive_more::Display, Serialize, Deserialize)]
-pub struct ErrorResponse {
-    pub error: String,
-}
-
-impl ErrorResponse {
-    pub fn new(error: &str) -> ErrorResponse {
-        ErrorResponse {
-            error: error.to_string(),
-        }
-    }
-}
-
-impl ResponseError for ErrorResponse {
-    fn status_code(&self) -> StatusCode {
-        StatusCode::INTERNAL_SERVER_ERROR
-    }
-    fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(self.status_code())
-            .insert_header(ContentType::json())
-            .json(self)
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct UploadResponse {
-    pub upload_id: String,
-    pub chunk_size: Option<u64>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FinishResponse {
-    #[serde(rename = "upload_id")]
-    pub upload_id: String,
-    #[serde(rename = "file_hash")]
-    pub file_hash: String,
-}
-
-type DbPool = r2d2::Pool<SqliteConnectionManager>;
-
-pub type WebAPIResult<T> = Result<T, ErrorResponse>;
-
-#[derive(Debug, Clone)]
-pub struct SharedData {
-    pub shared_data_map: Arc<Mutex<HashMap<String, StorageCredentials>>>,
-}
+use crate::mime_types::MIME_TYPE;
+use crate::models::{
+    Config, ContinueUploadRequest, DbPool, ErrorResponse, FinishResponse, FinishUploadRequest,
+    SharedData, StartUploadRequest, UploadInfo, UploadResponse, WebAPIResult, MAX_CHUNK_SIZE,
+};
 
 #[instrument]
 pub async fn start_upload(
@@ -129,6 +24,20 @@ pub async fn start_upload(
     let default_creds = Arc::new(DefaultAzureCredential::default());
     let credentials = StorageCredentials::token_credential(default_creds);
     let upload_id = uuid::Uuid::new_v4().to_string();
+
+    let file_ext = &req.file_name.split('.').last();
+    let file_ext = match file_ext {
+        Some(ext) => ext,
+        None => {
+            error!("file_ext not found");
+            return Err(ErrorResponse::new("file_ext not found"));
+        }
+    };
+    let content_type = MIME_TYPE
+        .get(file_ext)
+        .unwrap_or(&"application/octet-stream");
+    debug!("start_upload content_type : {:#?}", content_type);
+
     shared_credentials
         .shared_data_map
         .lock()
@@ -159,7 +68,7 @@ pub async fn start_upload(
             &req.file_name,
             &req.file_size,
             &req.file_hash,
-            &req.content_type,
+            content_type,
             &"-",
             &"-",
         ),
@@ -199,8 +108,7 @@ pub async fn continue_upload(
 ) -> WebAPIResult<impl Responder> {
     let update_id = &form.upload_id;
     let update_id = update_id.as_str();
-    //debug!("continue_upload with : {:?}", form.0);
-    // Loader::builder().file_limit(128 * 1024 * 1024).build().load_fields(form).await.unwrap();
+
     let res = pool.get().unwrap().query_row(
         r#"
             SELECT
