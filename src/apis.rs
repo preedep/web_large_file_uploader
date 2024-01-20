@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use actix_multipart::form::MultipartForm;
-use actix_web::{HttpResponse, Responder, web};
+use actix_web::{web, HttpResponse, Responder};
 use azure_identity::DefaultAzureCredential;
 use azure_storage::StorageCredentials;
 use azure_storage_blobs::prelude::ClientBuilder;
@@ -9,7 +9,10 @@ use tracing::{debug, error};
 use tracing_attributes::instrument;
 
 use crate::mime_types::MIME_TYPE;
-use crate::models::{Config, ContinueUploadRequest, DbPool, ErrorResponse, FinishResponse, FinishUploadRequest, MAX_CHUNK_SIZE, SharedData, StartUploadRequest, UploadInfo, UploadResponse, WebAPIResult};
+use crate::models::{
+    Config, ContinueUploadRequest, DbPool, ErrorResponse, FinishResponse, FinishUploadRequest,
+    SharedData, StartUploadRequest, UploadInfo, UploadResponse, WebAPIResult, MAX_CHUNK_SIZE,
+};
 
 #[instrument]
 pub async fn start_upload(
@@ -30,7 +33,9 @@ pub async fn start_upload(
             return Err(ErrorResponse::new("file_ext not found"));
         }
     };
-    let content_type = MIME_TYPE.get(file_ext).unwrap_or(&"application/octet-stream");
+    let content_type = MIME_TYPE
+        .get(file_ext)
+        .unwrap_or(&"application/octet-stream");
     debug!("start_upload content_type : {:#?}", content_type);
 
     shared_credentials

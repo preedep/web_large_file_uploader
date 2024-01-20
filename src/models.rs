@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use actix_multipart::form::bytes::Bytes;
-use actix_multipart::form::MultipartForm;
 use actix_multipart::form::text::Text;
-use actix_web::{HttpResponse, ResponseError};
+use actix_multipart::form::MultipartForm;
 use actix_web::http::header::ContentType;
 use actix_web::http::StatusCode;
+use actix_web::{HttpResponse, ResponseError};
 use azure_storage::StorageCredentials;
 use r2d2_sqlite::SqliteConnectionManager;
 use serde::{Deserialize, Serialize};
@@ -111,4 +111,3 @@ pub type WebAPIResult<T> = Result<T, ErrorResponse>;
 pub struct SharedData {
     pub shared_data_map: Arc<Mutex<HashMap<String, StorageCredentials>>>,
 }
-
