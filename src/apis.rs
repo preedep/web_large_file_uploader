@@ -154,10 +154,6 @@ pub async fn continue_upload(
                 Some(chunk_data) => {
                     //debug!("continue_upload chunk_data : {:?}", chunk_data);
                     debug!("continue_upload chunk_data : {:#?}", &chunk_data);
-                    //let content_type = "text/plain";
-                    //if let Some(mut mime_type) = chunk_data.content_type {
-                    //    debug!("continue_upload content_type : {:#?}", mime_type);
-                    //}
                     let block_res = blob_client
                         .append_block(chunk_data.data.to_vec())
                         //.content_type(content_type)
@@ -190,8 +186,8 @@ pub async fn continue_upload(
 
 #[instrument]
 pub async fn finish_upload(
-    pool: web::Data<DbPool>,
-    config: web::Data<Config>,
+    _pool: web::Data<DbPool>,
+    _config: web::Data<Config>,
     req: web::Json<FinishUploadRequest>,
 ) -> WebAPIResult<impl Responder> {
     //debug!("finish_upload with : {:#?}", req);
