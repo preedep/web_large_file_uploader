@@ -20,13 +20,13 @@ This demo show how to upload large file to Azure Blob Storage via Web Applicatio
 ## How to run in local development (my mac)
 use `cargo run` to run the application
 
-```
+```bash
 STORAGE_ACCOUNT=<<storage account>> \
 STORAGE_CONTAINER=<<container or root folder>> \
 AZURE_CLIENT_ID=<<client id or application id>> \
 AZURE_CLIENT_SECRET=<<client secret>> \
 AZURE_TENANT_ID=<<tenant id>> \
 RUST_LOG=debug cargo run
-
 ```
+
 
