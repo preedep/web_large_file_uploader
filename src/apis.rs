@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use actix_multipart::form::MultipartForm;
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{HttpResponse, Responder, web};
 use azure_identity::DefaultAzureCredential;
 use azure_storage::StorageCredentials;
 use azure_storage_blobs::prelude::ClientBuilder;
@@ -11,7 +11,7 @@ use tracing_attributes::instrument;
 use crate::mime_types::MIME_TYPE;
 use crate::models::{
     Config, ContinueUploadRequest, DbPool, ErrorResponse, FinishResponse, FinishUploadRequest,
-    SharedData, StartUploadRequest, UploadInfo, UploadResponse, WebAPIResult, MAX_CHUNK_SIZE,
+    MAX_CHUNK_SIZE, SharedData, StartUploadRequest, UploadInfo, UploadResponse, WebAPIResult,
 };
 
 #[instrument]

@@ -4,15 +4,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
-<input type="file" id="fileUpload" name="fileUpload"><br><br>
-<input type="text" id="txtHash" hidden>
+<input type="file" id="fileUpload" name="fileUpload" onchange="fineUploadChanged()"><br><br>
+<label for="txtHash"></label><input type="text" id="txtHash" hidden>
 <button id="btnCalFileSha256" onclick="calculateMD5();">Calc Hash File</button>
 <br/><br/>
 <button id="btnUpload" onclick="uploadFile()">Upload</button>
 <br/><br/>
 <div id="dvPreview"></div>
 <script>
+    function fineUploadChanged(){
+        console.log("fineUploadChanged");
+        document.getElementById('dvPreview').innerText = "";
+    }
     function uploadFile() {
+        document.getElementById("btnUpload").disabled = true;
+
         var file_hash = document.getElementById('txtHash').value;
         var file = document.getElementById('fileUpload').files[0];
         const data = {
@@ -81,6 +87,8 @@
                                     .then(response => response.json())
                                     .then(data => {
                                         console.log(data);
+                                        //enable button
+                                        document.getElementById("btnUpload").disabled = false;
                                     })
                                     .catch((error) => {
                                         console.error('Error:', error);
@@ -92,8 +100,6 @@
                         .catch((error) => {
                             console.error('Error:', error);
                         });
-
-
                 }
             })
             .catch((error) => {
