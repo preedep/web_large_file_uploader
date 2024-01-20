@@ -29,3 +29,4 @@ AZURE_TENANT_ID=<<tenant id>> \
 RUST_LOG=debug cargo run
 
 ```
+
